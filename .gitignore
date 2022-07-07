@@ -1,3 +1,28 @@
+build/
+
+# CodeBlock files
+*.cbp
+*.depend
+*.layout
+
+# CodeLite files
+.codelite/
+*.project
+*.workspace
+
+# Eclipse project files
+.project
+.cproject
+
+# SublimeText project files
+*.sublime-project
+*.sublime-workspace
+
+# VSCode files
+.vscode/
+*.code-workspace
+*.code-search
+
 # Created by https://www.gitignore.io/api/visualstudio
 # Edit at https://www.gitignore.io/?templates=visualstudio
 
