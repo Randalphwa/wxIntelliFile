@@ -22,7 +22,7 @@
     <ProjectGuid>{89DBC005-0C31-454F-B2D1-B50D10FD950E}</ProjectGuid>
     <RootNamespace>IntelliFile</RootNamespace>
     <Keyword>MFCProj</Keyword>
-    <WindowsTargetPlatformVersion>10.0.20348.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -30,14 +30,14 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -45,7 +45,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -53,7 +53,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -455,15 +455,23 @@ echo.
     <None Include="res\writesmall.bmp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ChangeDriveDlg.h" />
     <ClInclude Include="FileList.h" />
     <ClInclude Include="FileView.h" />
+    <ClInclude Include="FolderDlg.h" />
+    <ClInclude Include="HTMLCtrl.h" />
     <ClInclude Include="HyperlinkStatic.h" />
     <ClInclude Include="IntelliFile.h" />
     <ClInclude Include="MainFrame.h" />
     <ClInclude Include="MFCListView.h" />
+    <ClInclude Include="NewFolderDlg.h" />
     <ClInclude Include="sinstance.h" />
     <ClInclude Include="SortListCtrl.h" />
     <ClInclude Include="VersionInfo.h" />
+    <ClInclude Include="ViewMetaFileDlg.h" />
+    <ClInclude Include="ViewRichFileDlg.h" />
+    <ClInclude Include="ViewTextFileDlg.h" />
+    <ClInclude Include="WndResizer.h" />
     <CustomBuild Include="Resource.h">
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">hlp\HTMLDefines.h;%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">hlp\HTMLDefines.h;%(Outputs)</Outputs>
@@ -546,12 +554,16 @@ makehm /h /a afxhh.h IDW_,HIDW_,0x50000 "%(FullPath)" &gt;&gt; "hlp\HTMLDefines.
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ChangeDriveDlg.cpp" />
     <ClCompile Include="FileList.cpp" />
     <ClCompile Include="FileView.cpp" />
+    <ClCompile Include="FolderDlg.cpp" />
+    <ClCompile Include="HTMLCtrl.cpp" />
     <ClCompile Include="HyperlinkStatic.cpp" />
     <ClCompile Include="IntelliFile.cpp" />
     <ClCompile Include="MainFrame.cpp" />
     <ClCompile Include="MFCListView.cpp" />
+    <ClCompile Include="NewFolderDlg.cpp" />
     <ClCompile Include="sinstance.cpp" />
     <ClCompile Include="SortListCtrl.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -561,6 +573,10 @@ makehm /h /a afxhh.h IDW_,HIDW_,0x50000 "%(FullPath)" &gt;&gt; "hlp\HTMLDefines.
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="VersionInfo.cpp" />
+    <ClCompile Include="ViewMetaFileDlg.cpp" />
+    <ClCompile Include="ViewRichFileDlg.cpp" />
+    <ClCompile Include="ViewTextFileDlg.cpp" />
+    <ClCompile Include="WndResizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="IntelliFile.rc" />

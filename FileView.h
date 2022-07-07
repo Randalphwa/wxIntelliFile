@@ -40,12 +40,14 @@ public:
 	virtual void OnInitialUpdate();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnDblClickEntry(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnContextMenu(NMHDR *pNMHDR, LRESULT *pResult);
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 
 public:
 	void ResizeListCtrl();
 	void DoubleClickEntry(int nIndex);
-	BOOL Refresh();
+	BOOL Refresh(CString* strNewFolderName = NULL);
+	BOOL ChangeDrive();
 	BOOL ViewFile();
 	BOOL EditFile();
 	BOOL CopyFile(CFileView* pDestination);

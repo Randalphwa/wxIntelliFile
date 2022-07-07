@@ -24,6 +24,12 @@ void DisplayErrorBox(CMFCCaptionBar* wndCaptionBar, LPCTSTR lpszFunction, DWORD 
 void DisplayErrorBox(CMFCCaptionBar* wndCaptionBar, LPCTSTR lpszFunction, HRESULT hResult);
 
 BOOL IsApplication(CString strFilePath);
+BOOL IsBinaryFile(CString strFilePath);
+BOOL IsTextFile(CString strFilePath);
+BOOL IsRichTextFile(CString strFilePath);
+BOOL IsCodeFile(CString strFilePath);
+BOOL IsDataFile(CString strFilePath);
+BOOL IsMetaFile(CString strFilePath);
 
 ///////////////////////////////////////////////////////////////////////////////
 // CFileData command target
@@ -106,21 +112,21 @@ public:
 	HWND GetParent() { return m_hWndParent; }
 	void SetParent(HWND hWndParent) { m_hWndParent = hWndParent; }
 
-	CString GetFolder() { return m_strFolder; }
-	BOOL SetFolder(CString strFolder);
+	CString GetCurrentFolder() { return m_strCurrentFolder; }
+	BOOL SetCurrentFolder(CString strFolder);
 
 	BOOL Refresh();
 	BOOL ViewFile(CString strFilePath);
 	BOOL EditFile(CString strFilePath);
 	BOOL CopyFile(CFileSystem* pDestination, CFileList* arrSelection);
 	BOOL MoveFile(CFileSystem* pDestination, CFileList* arrSelection);
-	BOOL NewFolder(CFileSystem* pDestination, CFileList* arrSelection);
+	BOOL NewFolder(CFileSystem* pDestination, CString strNewFolderName);
 	BOOL DeleteFile(CFileSystem* pDestination, CFileList* arrSelection);
 
 protected:
 	CMFCCaptionBar* m_wndCaptionBar;
 	HWND m_hWndParent;
 	int m_nSystemType;
-	CString m_strFolder;
+	CString m_strCurrentFolder;
 	CFileList m_arrFiles;
 };

@@ -18,6 +18,15 @@ IntelliFile.  If not, see <http://www.opensource.org/licenses/gpl-3.0.html>*/
 #include "IntelliFile.h"
 #include "FileView.h"
 #include "MainFrame.h"
+#include "ChangeDriveDlg.h"
+#include "NewFolderDlg.h"
+#include "ViewMetaFileDlg.h"
+#include "ViewRichFileDlg.h"
+#include "ViewTextFileDlg.h"
+
+#include <Shobjidl.h>
+#include <ShlObj.h>
+#include <windowsx.h>
 
 // CFileView
 
@@ -43,6 +52,7 @@ CFileView::~CFileView()
 BEGIN_MESSAGE_MAP(CFileView, CMFCListView)
 	ON_WM_SIZE()
 	ON_NOTIFY(NM_DBLCLK, ID_MFCLISTCTRL, OnDblClickEntry)
+	ON_NOTIFY(NM_RCLICK, ID_MFCLISTCTRL, OnContextMenu)
 END_MESSAGE_MAP()
 
 // CFileView diagnostics
@@ -62,6 +72,82 @@ void CFileView::Dump(CDumpContext& dc) const
 #endif //_DEBUG
 
 // CFileView message handlers
+
+class CItemIdListReleaser {
+public:
+	explicit CItemIdListReleaser(ITEMIDLIST * idList) : _idList(idList) {}
+	~CItemIdListReleaser() { if (_idList) CoTaskMemFree(_idList); }
+private:
+	ITEMIDLIST * _idList;
+};
+
+class CComInterfaceReleaser {
+public:
+	explicit CComInterfaceReleaser(IUnknown * i) : _i(i) {}
+	~CComInterfaceReleaser() { if (_i) _i->Release(); }
+private:
+	IUnknown * _i;
+};
+
+class CItemIdArrayReleaser {
+public:
+	explicit CItemIdArrayReleaser(const std::vector<ITEMIDLIST*>& idArray) : _array(idArray) {}
+	~CItemIdArrayReleaser() {
+		for (ITEMIDLIST* item : _array)
+			CoTaskMemFree(item);
+	}
+
+	CItemIdArrayReleaser& operator=(const CItemIdArrayReleaser&) = delete;
+private:
+	const std::vector<ITEMIDLIST*>& _array;
+};
+
+bool openShellContextMenuForObject(const std::wstring &path, int xPos, int yPos, void* parentWindow)
+{
+	ITEMIDLIST * id = 0;
+	std::wstring windowsPath = path;
+	std::replace(windowsPath.begin(), windowsPath.end(), '/', '\\');
+	HRESULT result = SHParseDisplayName(windowsPath.c_str(), 0, &id, 0, 0);
+	if (!SUCCEEDED(result) || !id)
+		return false;
+	CItemIdListReleaser idReleaser(id);
+
+	IShellFolder* ifolder = 0;
+
+	LPCITEMIDLIST idChild = 0;
+	result = SHBindToParent(id, IID_IShellFolder, (void**)&ifolder, &idChild);
+	if (!SUCCEEDED(result) || !ifolder)
+		return false;
+	CComInterfaceReleaser ifolderReleaser(ifolder);
+
+	IContextMenu* imenu = 0;
+	result = ifolder->GetUIObjectOf((HWND)parentWindow, 1, (const ITEMIDLIST **)&idChild, IID_IContextMenu, 0, (void**)&imenu);
+	if (!SUCCEEDED(result) || !ifolder)
+		return false;
+	CComInterfaceReleaser menuReleaser(imenu);
+
+	HMENU hMenu = CreatePopupMenu();
+	if (!hMenu)
+		return false;
+	if (SUCCEEDED(imenu->QueryContextMenu(hMenu, 0, 1, 0x7FFF, CMF_NORMAL)))
+	{
+		int iCmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD, xPos, yPos, (HWND)parentWindow, NULL);
+		if (iCmd > 0)
+		{
+			CMINVOKECOMMANDINFOEX info = { 0 };
+			info.cbSize = sizeof(info);
+			info.fMask = CMIC_MASK_UNICODE;
+			info.hwnd = (HWND)parentWindow;
+			info.lpVerb = MAKEINTRESOURCEA(iCmd - 1);
+			info.lpVerbW = MAKEINTRESOURCEW(iCmd - 1);
+			info.nShow = SW_SHOWNORMAL;
+			imenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
+		}
+	}
+	DestroyMenu(hMenu);
+
+	return true;
+}
 
 void CFileView::OnInitialUpdate()
 {
@@ -104,6 +190,38 @@ void CFileView::OnDblClickEntry(NMHDR *pNMHDR, LRESULT *pResult)
 	if (pItemActivate->iItem != -1)
 	{
 		DoubleClickEntry(pItemActivate->iItem);
+	}
+}
+
+void CFileView::OnContextMenu(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMITEMACTIVATE pItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
+	CPoint pt(pItemActivate->ptAction);
+	POINT p;
+	p.x = pt.x;
+	p.y = pt.y;
+	::ClientToScreen(pNMHDR->hwndFrom, &p);
+	if (pResult != NULL) *pResult = 0;
+	if (pItemActivate->iItem != -1)
+	{
+		// DoubleClickEntry(pItemActivate->iItem);
+		ASSERT(GetListCtrl().m_hWnd != NULL);
+		CFileData* pFileData = m_pFileSystem.GetAt((int)GetListCtrl().GetItemData(pItemActivate->iItem));
+		ASSERT(pFileData != NULL);
+		if (pFileData->IsFolder())
+		{
+			if (pFileData->GetFileName().CompareNoCase(_T("..")) != 0)
+			{
+				const std::wstring strFilePath = m_pFileSystem.GetCurrentFolder() + pFileData->GetFileName() + _T("\\");
+				openShellContextMenuForObject(strFilePath, p.x, p.y, this->m_hWnd);
+			}
+		}
+		else
+		{
+			CString strFolder = m_pFileSystem.GetCurrentFolder();
+			const std::wstring strFilePath = strFolder + pFileData->GetFileName();
+			openShellContextMenuForObject(strFilePath, p.x, p.y, this->m_hWnd);
+		}
 	}
 }
 
@@ -178,7 +296,7 @@ void CFileView::DoubleClickEntry(int nIndex)
 	{
 		if (pFileData->GetFileName().CompareNoCase(_T(".")) != 0)
 		{
-			CString strFolder = m_pFileSystem.GetFolder();
+			CString strFolder = m_pFileSystem.GetCurrentFolder();
 			if (pFileData->GetFileName().CompareNoCase(_T("..")) != 0)
 			{
 				strFolder += pFileData->GetFileName();
@@ -190,7 +308,7 @@ void CFileView::DoubleClickEntry(int nIndex)
 				strFolder = strFolder.Left(strFolder.ReverseFind(_T('\\')));
 				strFolder += _T("\\");
 			}
-			if (m_pFileSystem.SetFolder(strFolder))
+			if (m_pFileSystem.SetCurrentFolder(strFolder))
 			{
 				if (Refresh())
 				{
@@ -212,7 +330,7 @@ void CFileView::DoubleClickEntry(int nIndex)
 	}
 	else
 	{
-		CString strFolder = m_pFileSystem.GetFolder();
+		CString strFolder = m_pFileSystem.GetCurrentFolder();
 		CString strFilePath = strFolder + pFileData->GetFileName();
 		if (IsApplication(strFilePath))
 		{
@@ -231,7 +349,7 @@ void CFileView::DoubleClickEntry(int nIndex)
 	}
 }
 
-BOOL CFileView::Refresh()
+BOOL CFileView::Refresh(CString* strNewFolderName)
 {
 	CString strListItem;
 	GetListCtrl().SetRedraw(FALSE);
@@ -240,6 +358,10 @@ BOOL CFileView::Refresh()
 	{
 		strListItem = GetListCtrl().GetItemText(nListItem, 0);
 	}
+	if (strNewFolderName != NULL)
+	{
+		strListItem = *strNewFolderName;
+	}
 	VERIFY(GetListCtrl().DeleteAllItems());
 	BOOL bRetVal = m_pFileSystem.Refresh();
 	const int nSize = m_pFileSystem.GetSize();
@@ -247,7 +369,7 @@ BOOL CFileView::Refresh()
 	{
 		CFileData* pFileData = m_pFileSystem.GetAt(nIndex);
 		ASSERT(pFileData != NULL);
-		const int nListItem = GetListCtrl().InsertItem(GetListCtrl().GetItemCount(), pFileData->GetFileName());
+		nListItem = GetListCtrl().InsertItem(GetListCtrl().GetItemCount(), pFileData->GetFileName());
 		GetListCtrl().SetItemText(nListItem, 1, pFileData->FormatSize());
 		GetListCtrl().SetItemText(nListItem, 2, pFileData->FormatDate());
 		GetListCtrl().SetItemText(nListItem, 3, pFileData->FormatAttr());
@@ -284,13 +406,84 @@ BOOL CFileView::Refresh()
 	GetListCtrl().UpdateWindow();
 	ResizeListCtrl();
 	ASSERT_VALID(m_pMainFrame);
-	m_pMainFrame->SetStatusBar(m_bIsLeftPane, m_pFileSystem.GetFolder());
+	m_pMainFrame->SetStatusBar(m_bIsLeftPane, m_pFileSystem.GetCurrentFolder());
 	return bRetVal;
+}
+
+BOOL CFileView::ChangeDrive()
+{
+	CChangeDriveDlg dlgChangeDrive(this);
+	if (dlgChangeDrive.DoModal() == IDOK)
+	{
+		if (m_pFileSystem.SetCurrentFolder(dlgChangeDrive.m_strNewDriveName) && Refresh(NULL))
+		{
+			ASSERT_VALID(m_pMainFrame);
+			m_pMainFrame->HideMessageBar();
+			return TRUE;
+		}
+		else
+		{
+			ASSERT_VALID(m_pMainFrame);
+			m_pMainFrame->RecalcLayout();
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 BOOL CFileView::ViewFile()
 {
-	return TRUE;
+	int nListItem = GetListCtrl().GetNextItem(-1, LVIS_SELECTED | LVIS_FOCUSED);
+	if (nListItem != -1)
+	{
+		CFileData* pFileData = m_pFileSystem.GetAt((int)GetListCtrl().GetItemData(nListItem));
+		ASSERT(pFileData != NULL);
+		if (!pFileData->IsFolder())
+		{
+			CString strFolder = m_pFileSystem.GetCurrentFolder();
+			CString strFilePath = strFolder + pFileData->GetFileName();
+			/*if (m_pFileSystem.ViewFile(strFilePath))
+			{
+				ASSERT_VALID(m_pMainFrame);
+				m_pMainFrame->HideMessageBar();
+				return TRUE;
+			}
+			else
+			{
+				ASSERT_VALID(m_pMainFrame);
+				m_pMainFrame->RecalcLayout();
+				return FALSE;
+			}*/
+			if (IsTextFile(strFilePath))
+			{
+				CViewTextFileDlg dlgViewTextFile(this);
+				dlgViewTextFile.m_strFilePath = strFilePath;
+				dlgViewTextFile.DoModal();
+				return TRUE;
+			}
+			else
+			{
+				if (IsRichTextFile(strFilePath))
+				{
+					CViewRichFileDlg dlgViewRichFile(this);
+					dlgViewRichFile.m_strFilePath = strFilePath;
+					dlgViewRichFile.DoModal();
+					return TRUE;
+				}
+				else
+				{
+					if (IsMetaFile(strFilePath))
+					{
+						CViewMetaFileDlg dlgViewMetaFile(this);
+						dlgViewMetaFile.m_strFilePath = strFilePath;
+						dlgViewMetaFile.DoModal();
+						return TRUE;
+					}
+				}
+			}
+		}
+	}
+	return FALSE;
 }
 
 BOOL CFileView::EditFile()
@@ -302,7 +495,7 @@ BOOL CFileView::EditFile()
 		ASSERT(pFileData != NULL);
 		if (!pFileData->IsFolder())
 		{
-			CString strFolder = m_pFileSystem.GetFolder();
+			CString strFolder = m_pFileSystem.GetCurrentFolder();
 			CString strFilePath = strFolder + pFileData->GetFileName();
 			if (m_pFileSystem.EditFile(strFilePath))
 			{
@@ -334,7 +527,7 @@ BOOL CFileView::CopyFile(CFileView* pDestination)
 	}
 	if (arrSelection.GetCount() > 0)
 	{
-		if (m_pFileSystem.CopyFile(&pDestination->m_pFileSystem, &arrSelection) && pDestination->Refresh() && Refresh())
+		if (m_pFileSystem.CopyFile(&pDestination->m_pFileSystem, &arrSelection) && pDestination->Refresh() && Refresh(NULL))
 		{
 			ASSERT_VALID(m_pMainFrame);
 			m_pMainFrame->HideMessageBar();
@@ -363,7 +556,7 @@ BOOL CFileView::MoveFile(CFileView* pDestination)
 	}
 	if (arrSelection.GetCount() > 0)
 	{
-		if (m_pFileSystem.MoveFile(&pDestination->m_pFileSystem, &arrSelection) && pDestination->Refresh() && Refresh())
+		if (m_pFileSystem.MoveFile(&pDestination->m_pFileSystem, &arrSelection) && pDestination->Refresh() && Refresh(NULL))
 		{
 			ASSERT_VALID(m_pMainFrame);
 			m_pMainFrame->HideMessageBar();
@@ -381,18 +574,10 @@ BOOL CFileView::MoveFile(CFileView* pDestination)
 
 BOOL CFileView::NewFolder(CFileView* pDestination)
 {
-	CFileList arrSelection;
-	int nListItem = GetListCtrl().GetNextItem(-1, LVIS_SELECTED);
-	while (nListItem != -1)
+	CNewFolderDlg dlgNewFolder(m_pMainFrame);
+	if (dlgNewFolder.DoModal() == IDOK)
 	{
-		CFileData* pFileData = m_pFileSystem.GetAt((int)GetListCtrl().GetItemData(nListItem));
-		ASSERT(pFileData != NULL);
-		arrSelection.Add(pFileData);
-		nListItem = GetListCtrl().GetNextItem(nListItem, LVIS_SELECTED);
-	}
-	if (arrSelection.GetCount() > 0)
-	{
-		if (m_pFileSystem.NewFolder(&pDestination->m_pFileSystem, &arrSelection) && Refresh())
+		if (m_pFileSystem.NewFolder(&pDestination->m_pFileSystem, dlgNewFolder.m_strNewFolderName) && Refresh(&dlgNewFolder.m_strNewFolderName))
 		{
 			ASSERT_VALID(m_pMainFrame);
 			m_pMainFrame->HideMessageBar();
@@ -421,7 +606,7 @@ BOOL CFileView::DeleteFile(CFileView* pDestination)
 	}
 	if (arrSelection.GetCount() > 0)
 	{
-		if (m_pFileSystem.DeleteFile(&pDestination->m_pFileSystem, &arrSelection) && Refresh())
+		if (m_pFileSystem.DeleteFile(&pDestination->m_pFileSystem, &arrSelection) && Refresh(NULL))
 		{
 			ASSERT_VALID(m_pMainFrame);
 			m_pMainFrame->HideMessageBar();
